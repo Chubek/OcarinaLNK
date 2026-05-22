@@ -1,0 +1,27 @@
+.TH OLNK 1 "May 2026" "OcarinaLNK" "OcarinaLNK User Commands"
+.SH NAME
+olnk \- OcarinaLNK linker frontend
+.SH SYNOPSIS
+.B olnk
+.RI [ options ]
+.SH DESCRIPTION
+.B olnk
+is the command-line entry point for OcarinaLNK.
+It coordinates configuration, format/machine selection, and linking.
+.SH FILES
+.TP
+.I ~/.olnk/bin/olnk
+Installed executable.
+.TP
+.I ~/.olnk/formats
+Lua format definitions.
+.TP
+.I ~/.olnk/machines
+Lua machine definitions.
+.TP
+.I ~/.olnk/scripts
+User linker scripts.
+.SH SEE ALSO
+.BR olnkidl (1),
+.BR olnkquery (1),
+.BR olnk-api (3)

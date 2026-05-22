@@ -1,0 +1,11 @@
+prefix=@OLNK_PREFIX@
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: OcarinaLNK
+Description: OcarinaLNK - An incremental linker with swappable profiles
+Version: 1.0.0
+Requires:
+Libs: -L${libdir} -lolnk_core
+Cflags: -I${includedir}

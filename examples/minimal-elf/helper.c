@@ -1,0 +1,3 @@
+int helper(int v) {
+  return v * 2;
+}

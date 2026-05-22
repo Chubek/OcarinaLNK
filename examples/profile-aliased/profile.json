@@ -1,0 +1,5 @@
+{
+  "output": "/tmp/olnk-example-profile-aliased/out.bin",
+  "format": "pe",
+  "machine": "amd64"
+}

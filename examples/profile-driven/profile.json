@@ -1,0 +1,5 @@
+{
+  "output": "/tmp/olnk-example-profile/out.bin",
+  "format": "Mach-O",
+  "machine": "Aarch64"
+}
