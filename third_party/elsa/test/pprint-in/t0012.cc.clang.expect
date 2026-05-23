@@ -1,0 +1,32 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+class Foo {
+public:
+  static int x;
+  int y;
+  int func();
+  int func2();
+  int func3() const;
+};
+
+int Foo::x = 5;
+
+int main()
+{
+  return x;
+}
+
+int Foo::func()
+{
+  return x;
+}
+
+int foo(Foo * const );
+
+extern Foo * const arf;
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

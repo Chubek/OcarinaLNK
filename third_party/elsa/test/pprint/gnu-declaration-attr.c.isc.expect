@@ -1,0 +1,29 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+int var_target = 7;
+
+extern __attribute__((alias("var_target"))) int var_alias;
+
+int target2 = 9;
+
+extern __attribute__((alias("target2"))) int alias2;
+
+int target3 = 29;
+
+extern __attribute__((alias("target3"))) int alias3;
+
+int main()
+{
+  int x = ISC(SC_LVAL_TO_RVAL, int, var_alias);
+  return ISC(SC_LVAL_TO_RVAL, int, x) == 7 &&
+           ISC(SC_LVAL_TO_RVAL, int, alias2) == 9 &&
+           ISC(SC_LVAL_TO_RVAL, int, alias3) == 29 && 1?
+           0 :
+           1;
+}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

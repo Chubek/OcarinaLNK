@@ -1,0 +1,22 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+void *retzero()
+{
+  return 0;
+}
+
+void *f2(int n, char *s)
+{
+  return n? (void *)s : 0;
+}
+
+void *f3(int n, char *s)
+{
+  return n? 0 : (void *)s;
+}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

@@ -1,0 +1,67 @@
+// long-decl.c
+// Declaration statement that is long.
+// I want to break the line after the '='.
+
+int AV_ORD_PTR_CHECK_DEREF(int, int);
+int av_ord_ptr_add(int, int);
+int AV_ORD_PTR_REGISTER_LOCAL(int);
+
+int f(int arr, int dummy)
+{
+  {
+    int __retval_longer_name = AV_ORD_PTR_CHECK_DEREF(
+                                 av_ord_ptr_add(
+                                   AV_ORD_PTR_REGISTER_LOCAL(arr),
+                                   0 * sizeof(int)), dummy) +
+                                 AV_ORD_PTR_CHECK_DEREF(
+                                   av_ord_ptr_add(
+                                     AV_ORD_PTR_REGISTER_LOCAL(arr),
+                                     1 * sizeof(int)), dummy);
+
+    // Compound declaration.
+    int __retval_longer_namf = AV_ORD_PTR_CHECK_DEREF(
+                                 av_ord_ptr_add(
+                                   AV_ORD_PTR_REGISTER_LOCAL(arr),
+                                   0 * sizeof(int)), dummy) +
+                                 AV_ORD_PTR_CHECK_DEREF(
+                                   av_ord_ptr_add(
+                                     AV_ORD_PTR_REGISTER_LOCAL(arr),
+                                     1 * sizeof(int)), dummy),
+        __retval_longer_namg = AV_ORD_PTR_CHECK_DEREF(
+                                 av_ord_ptr_add(
+                                   AV_ORD_PTR_REGISTER_LOCAL(arr),
+                                   0 * sizeof(int)), dummy) +
+                                 AV_ORD_PTR_CHECK_DEREF(
+                                   av_ord_ptr_add(
+                                     AV_ORD_PTR_REGISTER_LOCAL(arr),
+                                     1 * sizeof(int)), dummy);
+
+    return __retval_longer_name;
+  }
+}
+
+struct CMUnitTest__inst__ {
+  char *name;
+  int test_func;
+  int setup_func;
+  int teardown_func;
+  int initial_state;
+};
+
+int av_ord_ptr_from_intptr(int);
+
+void g()
+{
+  int strcmp_test__inst__ = 1;
+
+  // Current rendering, which I want to improve.
+  struct CMUnitTest__inst__ const strcmp_tests[1] =
+                                    {
+                                      { "strcmp_test",
+                                        strcmp_test__inst__,
+                                        av_ord_ptr_from_intptr(0),
+                                        av_ord_ptr_from_intptr(0),
+                                        av_ord_ptr_from_intptr(0) } };
+}
+
+// EOF

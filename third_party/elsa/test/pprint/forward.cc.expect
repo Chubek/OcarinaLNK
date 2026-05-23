@@ -1,0 +1,37 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+class Foo;
+
+int main()
+{
+  Foo *x;
+}
+
+void f(Foo *)
+{}
+
+class Foo {
+public:
+  int x;
+  Foo()
+  {}
+  Foo(Foo const &__other)
+    : x(__other.x)
+  {}
+  Foo &operator=(Foo const &__other)
+  {
+    (*this).x = __other.x;
+    return *this;
+  }
+  ~Foo()
+  {}
+};
+
+void f(Foo *, int)
+{}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

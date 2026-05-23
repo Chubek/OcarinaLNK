@@ -1,0 +1,20 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+class C {
+  C()
+  {}
+  C(C const &__other)
+  {}
+  C &operator=(C const &__other)
+  {
+    return *this;
+  }
+  ~C()
+  {}
+};
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

@@ -1,0 +1,191 @@
+#!/usr/bin/perl -w
+# -*-perl-*-
+use strict;
+
+# Test the idempotency of the C++ parser.
+
+# Daniel S. Wilkerson dsw@cs.berkeley.edu
+
+# Root directory of Elsa.  This is used to find 'ccparse.exe' and
+# 'chop_out'.
+my $elsadir = ".";
+
+my @names = ();
+
+# Options to pass to ccparse.
+my $ccparseOptions = "";
+
+# When true, print extra info about files being processed and the final
+# counts.  This information is useful when running on a lot of files at
+# once, but not when running on a single file.
+my $verbose = 1;
+
+my @outfiles = ();
+my %outfile2command = ();
+
+my $outdir;
+
+my $usage=<<END
+Usage: idemcheck -d <outputdir> [--elsadir elsadir] [-xc]
+         [-q] [--no-elaborate] <inputlist>...
+END
+    ;
+
+if (+@ARGV==0) {
+    print $usage;
+    exit 0;
+}
+
+#  for(@ARGV) {
+#      s/\s*\#.*$//;               # delete comments
+#      s/^\s*//;                   # delete leading whitespace
+#      s/\s*$//;                   # delete trailing whitespace
+#      next if /^\s*$/;            # skip blank lines
+#      if (/^(\S+)$/) {
+#          push @names, $1;
+#      } else {
+#          die "Malformed line: $_";
+#      }
+#  }
+{
+    my $arg = shift @ARGV;
+    last unless defined $arg;
+    if ($arg eq "-d") {
+        $outdir = shift @ARGV;
+        die "No argument to -d\n" unless defined $outdir;
+        die "No such dir: $outdir\n" unless -d $outdir;
+    }
+    elsif ($arg eq "--elsadir") {
+        $elsadir = shift @ARGV;
+    }
+    elsif ($arg eq "-xc") {
+        $ccparseOptions = "-xc";
+    }
+    elsif ($arg eq "--no-elaborate") {
+        $ccparseOptions .= " --no-elaborate";
+    }
+    elsif ($arg eq "-q") {
+        $verbose = 0;
+    }
+    elsif ($arg =~ m/^-/) {
+        die("Unknown option: $arg\n");
+    }
+    else {
+        push @names, $arg;
+    }
+    redo;
+}
+die "You must specify an out directory with -d\n$usage" unless defined $outdir;
+
+my $parser = "$elsadir/ccparse.exe";
+die "No executable file: $parser\n" unless -x $parser;
+
+sub run_only ($$) {
+    my ($command, $outfile) = @_;
+    my $realcommand = "$command >> $outfile";
+#    print "RUN: $realcommand\n";
+    unlink $outfile;
+    die if -f $outfile;
+    my $res = system "$realcommand";
+    if ($res!=0) {
+        my $exit_value  = $res >> 8;
+        my $signal_num  = $res & 127;
+        my $dumped_core = $res & 128;
+        system "echo >> $outfile '**** abnormal exit: exit_value $exit_value, " .
+            "signal_num $signal_num, dumped_core $dumped_core'\n";
+        die "Command fails: $realcommand\n";
+    }
+}
+
+sub run_command ($$) {
+    my ($command, $outfile) = @_;
+    #print("run_command: $command\n");
+    my $realcommand = "$command >> $outfile";
+    $outfile2command{$outfile} = $realcommand;
+    push @outfiles, $outfile;
+    run_only $command, $outfile;
+}
+
+sub dump_outfiles {
+    for my $outfile(@outfiles) {
+        print "STAGE ****************\n";
+        print "$outfile2command{$outfile}\n";
+        system "cat $outfile";
+    }
+}
+
+my $numinputs = 0;
+my $numpass = 0;
+my @failingFiles = ();
+for my $name(@names) {
+    if ($verbose) {
+        print "$name\n";
+    }
+    die "No such file $name\n" unless -f "$name";
+    ++$numinputs;
+
+    my $outname = $name;
+    if ($outname=~m|/|) {$outname=~s|^.*/([^/]+)|$1|;}
+    die "Bad outname:$outname:\n" if $outname=~/^\s*$/;
+    $outname = "$outdir/$outname";
+
+    @outfiles = ();
+    push @outfiles, $name;
+    $outfile2command{$name} = "ORIGINAL: $name";
+    eval {
+        my $flags = "--pretty-print $ccparseOptions";
+#          my $cppflags = "-lang-c++";      # This doesn't work!
+
+        my $cpp = "cpp";
+
+        run_command "$cpp $name", "$outname.0cppout.cc";
+        run_command "$parser $flags $outname.0cppout.cc", "$outname.1rawout.cc";
+
+        # smcpeak: I use 'cat file | cpp' rather than 'cpp < file'
+        # because the latter produces a spurious warning, "is shorter
+        # than expected", from GCC cpp on Windows when the input file
+        # contains CRLF line endings.
+        run_only "cat $outname.1rawout.cc | $cpp | perl $elsadir/chop_out", "$outname.2out.cc";
+
+        run_command "$parser $flags $outname.2out.cc", "$outname.3rawout.cc";
+        run_only "cat $outname.3rawout.cc | $cpp | perl $elsadir/chop_out", "$outname.4out.cc";
+    };
+    if ($@) {
+        dump_outfiles();
+        push @failingFiles, $name;
+        print "ERROR: $@\n";
+        next;
+    }
+
+    # sm: 2005-02-12: added -b (ignore blankspace differences)
+    # because on cygwin with DOS line endings in/c99/t0133.c has
+    # a CR vs CRLF difference that I don't want to track down...
+    my $diff_command = "diff -u -b $outname.2out.cc $outname.4out.cc > $outname.5diff";
+    $outfile2command{"$outname.5diff"} = $diff_command;
+    push @outfiles, "$outname.5diff";
+    my $diff_res = system $diff_command;
+    if ($diff_res == 0) {
+        ++$numpass;
+    } else {
+        dump_outfiles();
+        push @failingFiles, $name;
+    }
+}
+
+if ($verbose) {
+  print "Num inputs $numinputs\n";
+  print "Num pass   $numpass\n";
+}
+if (@failingFiles) {
+    print ("Failing files: ", join(' ', @failingFiles), "\n");
+}
+
+if ($numinputs==$numpass) {
+    if ($verbose) {
+        print "PASS\n";
+    }
+    exit 0;
+} else {
+    print "FAIL\n";
+    exit 1;
+}

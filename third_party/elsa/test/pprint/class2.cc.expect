@@ -1,0 +1,84 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+class Base1 {
+public:
+  Base1()
+  {}
+  Base1(Base1 const &__other)
+  {}
+  Base1 &operator=(Base1 const &__other)
+  {
+    return *this;
+  }
+  ~Base1()
+  {}
+};
+
+class Base2 {
+public:
+  Base2()
+  {}
+  Base2(Base2 const &__other)
+  {}
+  Base2 &operator=(Base2 const &__other)
+  {
+    return *this;
+  }
+  ~Base2()
+  {}
+};
+
+class Derived1 : public Base1 {
+public:
+  Derived1(Derived1 const &other)
+    : Base1(other)
+  {}
+  Derived1 &operator=(Derived1 const &__other)
+  {
+    (*this).operator=(__other);
+    return *this;
+  }
+  ~Derived1()
+  {}
+};
+
+class Derived2 : public Base1, public Base2 {
+public:
+  Derived2()
+    : Base1(),
+      Base2()
+  {}
+  Derived2(Derived2 const &__other)
+    : Base1(__other),
+      Base2(__other)
+  {}
+  Derived2 &operator=(Derived2 const &__other)
+  {
+    (*this).operator=(__other);
+    (*this).operator=(__other);
+    return *this;
+  }
+  ~Derived2()
+  {}
+};
+
+class Another {
+public:
+  virtual int f() = 0;
+  Another()
+  {}
+  Another(Another const &__other)
+  {}
+  Another &operator=(Another const &__other)
+  {
+    return *this;
+  }
+  ~Another()
+  {}
+};
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

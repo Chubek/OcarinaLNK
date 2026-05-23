@@ -1,0 +1,14 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+typedef int Int;
+
+Int f(void *q)
+{
+  return 1;
+}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

@@ -1,0 +1,224 @@
+// cc-print.ast            see license.txt for copyright and terms of use
+// extension module for cc.ast that supports printing C++
+// syntax from the AST
+
+verbatim {
+  class PrintEnv;                      // cc-print.h
+
+  #include "operator-precedence.h"     // OperatorPrecedence
+}
+
+
+class TranslationUnit {
+  // This is the toplevel entry point to the pretty printer.
+  public void print(PrintEnv &env) const;
+}
+
+
+class TopForm {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class Function {
+  // When printing the function, suppress printing any DeclFlags that
+  // are not in 'declFlagMask'.
+  public void print(PrintEnv &env, DeclFlags declFlagsMask = ALL_DECLFLAGS) const;
+}
+
+
+class Declaration {
+  public void print(PrintEnv &env) const;
+}
+
+
+class ASTTypeId {
+  public void print(PrintEnv &env) const;
+}
+
+
+class PQName {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class TypeSpecifier {
+  public void print(PrintEnv &env, bool inDeclaration) const;
+  pure_virtual void iprint(PrintEnv &env) const;
+
+  // This is called during printing just before opening the sequence (if
+  // that is done), before printing the main specifier.
+  define_customizable void ext_preprint(PrintEnv &env) const;
+
+  // For TS_elaborated, TS_classSpec, and TS_enumSpec, this is called
+  // right after printing the type introducing keyword, which here I'm
+  // calling "ClassKey", although that's slightly inaccurate because
+  // "enum" is also a possibility.
+  define_customizable void ext_printAfterClassKey(PrintEnv &env) const;
+}
+
+
+class BaseClassSpec {
+  public void print(PrintEnv &env) const;
+}
+
+
+class Member {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class Enumerator {
+  public void print(PrintEnv &env) const;
+}
+
+
+class Declarator {
+  public void print(PrintEnv &env) const;
+
+  // These are called just before and after printing 'decl'.
+  define_customizable void ext_pre_print(PrintEnv &env) const;
+  define_customizable void ext_post_print(PrintEnv &env) const;
+}
+
+
+class IDeclarator {
+  pure_virtual void print(PrintEnv &env) const;
+
+  // Print base declarator 'base' in the context of a suffix declarator.
+  protected void printBaseDeclaratorOfSuffixDeclarator(
+    PrintEnv &env, IDeclarator const *base) const;
+
+  // Hook for extension printing.  This is called after we have printed
+  // all of the syntax associated with this specific IDeclarator.  For
+  // the prefix declarators (pointer, reference, ptm), that is just
+  // before the base declarator.  For the suffix declarators (function,
+  // array) that is at the end.
+  //
+  // The current design is specifically aimed at being able to print GNU
+  // '__attribute__' specifiers in the right place.  If another
+  // extension has different syntactic requirements, 'ext_print' will
+  // need further generalization.
+  //
+  define_customizable void ext_print(PrintEnv &env) const;
+}
+
+
+class ExceptionSpec {
+  public void print(PrintEnv &env) const;
+}
+
+
+class OperatorName {
+  // Print the full name, including "operator".
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+// Possible syntactic places that a Statement can appear.  This is used
+// to refine how a few things are printed.
+enum StatementContext {
+  SC_NONE,
+
+  SC_FUNCTION_BODY,
+  SC_LABEL,
+  SC_CASE,
+  SC_DEFAULT,
+  SC_COMPOUND,
+  SC_IF_THEN,
+  SC_IF_ELSE,
+  SC_SWITCH,
+  SC_WHILE,
+  SC_DO_WHILE,
+  SC_FOR_INIT,
+  SC_FOR_BODY,
+  SC_TRY,
+  SC_HANDLER,
+};
+
+
+class Statement {
+  public void print(PrintEnv &env, StatementContext context) const;
+  pure_virtual void iprint(PrintEnv &env, StatementContext context) const;
+
+  -> S_label {
+       // This is called right after the ":" is printed, before the line
+       // break that follows it.
+       define_customizable
+         void ext_print(PrintEnv &env, StatementContext context) const;
+     }
+}
+
+
+class Condition {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class Handler {
+  public void print(PrintEnv &env) const;
+}
+
+
+class AsmDefinition {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class FullExpression {
+  public void print(PrintEnv &env) const;
+}
+
+
+class Expression {
+  // Print this expression to 'env'.  The precedence of the parent
+  // operator is in 'parentPrec', and is used to decide whether to
+  // print parentheses around this expression.
+  public void print(PrintEnv &env, OperatorPrecedence parentPrec) const;
+
+  // Print the expression without outer parentheses.
+  pure_virtual void iprint(PrintEnv &env) const;
+
+  // Get the precedence for this expression.
+  pure_virtual OperatorPrecedence getPrecedence() const;
+
+  public string exprToString() const;
+  public string asString() const { return exprToString(); };
+}
+
+verbatim {
+  // for debugging
+  char *expr_toString(Expression const *e);
+  int expr_debugPrint(Expression const *e);
+}
+
+
+class Initializer {
+  pure_virtual void print(PrintEnv &env, bool outermost) const;
+}
+
+
+class Designator {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class TemplateDeclaration {
+  public void print(PrintEnv &env) const;
+  pure_virtual void iprint(PrintEnv &env) const;
+}
+
+
+class TemplateParameter {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class TemplateArgument {
+  pure_virtual void print(PrintEnv &env) const;
+}
+
+
+class NamespaceDecl {
+  pure_virtual void print(PrintEnv &env) const;
+}

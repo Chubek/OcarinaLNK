@@ -1,0 +1,22 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+class B {
+public:
+  operator int();
+  B()
+  {}
+  B(B const &__other)
+  {}
+  B &operator=(B const &__other)
+  {
+    return *this;
+  }
+  ~B()
+  {}
+};
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

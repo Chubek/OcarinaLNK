@@ -1,0 +1,14 @@
+#!/bin/sh
+# Create config.mk.
+
+cat >config.mk <<EOF || exit
+# elsa/config.mk
+# Automatic configuration results.
+
+# There are no configuration parameters currently.  This is just a
+# placeholder.
+EOF
+
+echo "Created config.mk."
+
+# EOF

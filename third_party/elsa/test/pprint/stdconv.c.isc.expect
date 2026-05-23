@@ -1,0 +1,24 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+void f(void *p)
+{
+  p = ISC(SC_PTR_CONV, void *, 0);
+  if (ISC(SC_LVAL_TO_RVAL, void *, p) == ISC(SC_PTR_CONV, void *, 0)) {
+  }
+  if (ISC(SC_PTR_CONV, void *, 0) == ISC(SC_LVAL_TO_RVAL, void *, p)) {
+  }
+}
+
+void g()
+{
+  if (!ISC(SC_BOOL_CONV, int,
+         ISC(SC_ARRAY_TO_PTR, char *,
+           "this is an idiom for forcing an assert failure"))) {
+  }
+}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

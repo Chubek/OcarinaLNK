@@ -1,0 +1,58 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+typedef unsigned long long size_t;
+
+typedef unsigned long long uint64_t;
+
+typedef long long intptr_t;
+
+struct av_oo_pointer_struct {
+  uint64_t m_ordinal;
+  intptr_t m_offset;
+};
+
+typedef struct av_oo_pointer_struct av_oo_pointer_t;
+
+av_oo_pointer_t av_oo_ptr_malloc(size_t size);
+
+void *av_oo_ptr_check(av_oo_pointer_t p, size_t size);
+
+struct List {
+  av_oo_pointer_t head;
+  int x;
+};
+
+typedef struct List List;
+
+av_oo_pointer_t av_oo_ptr_from_intptr(intptr_t n);
+
+void g()
+{
+  av_oo_pointer_t __ptr_to_list =
+    av_oo_ptr_malloc(ISC(SC_INT_CONV, unsigned long long, 16));
+  (*((List *)av_oo_ptr_check(
+               ISC(SC_LVAL_TO_RVAL, av_oo_pointer_struct, __ptr_to_list),
+               ISC(SC_INT_CONV, unsigned long long, 16)))).head =
+    av_oo_ptr_from_intptr(ISC(SC_INT_CONV, long long, 0));
+  int y =
+    ISC(SC_INT_CONV, int,
+      ISC(SC_LVAL_TO_RVAL, int,
+        (*((List *)av_oo_ptr_check(
+                     ISC(SC_LVAL_TO_RVAL, av_oo_pointer_struct,
+                       __ptr_to_list),
+                     ISC(SC_INT_CONV, unsigned long long, 16)))).x) +
+        av_oo_ptr_from_intptr(ISC(SC_INT_CONV, long long, 0)).m_offset);
+  y +=
+    ISC(SC_LVAL_TO_RVAL, int,
+      (*((List *)av_oo_ptr_check(
+                   ISC(SC_LVAL_TO_RVAL, av_oo_pointer_struct,
+                     __ptr_to_list),
+                   ISC(SC_INT_CONV, unsigned long long, 16)))).x) +
+      av_oo_ptr_from_intptr(ISC(SC_INT_CONV, long long, 0)).m_offset;
+}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

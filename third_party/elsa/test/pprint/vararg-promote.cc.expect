@@ -1,0 +1,18 @@
+---- stdout ----
+// ---- START ----
+// -*- c++ -*-
+int f(int, ...);
+
+int f2(int, int);
+
+void g()
+{
+  f(1);
+  f(1, 2);
+  f(1, 0);
+}
+
+// ---- STOP ----
+---- stderr ----
+---- exit status ----
+Exit 0

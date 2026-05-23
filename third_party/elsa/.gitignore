@@ -1,0 +1,34 @@
+# .gitignore
+# Should be maintained in sorted order: "env LANG=C sort".
+
+*.a
+*.d
+*.exe
+*.gen.cc
+*.gen.h
+*.gen.lex
+*.gen.out
+*.gen.tokens
+*.gen.yy.cc
+*.gen.yy.h
+*.log
+*.o
+.gdbinit
+cc-tokens.cc
+cc-tokens.h
+cc-tokens.ids
+config.mk
+in/*.error*.cc
+in/big/*.i
+iptparse.yy.cc
+iptparse.yy.h
+lex.backup
+lexer.lex
+lexer.yy.cc
+lexer.yy.h
+personal.mk
+quicktest
+tmp.c
+tmp.cc
+
+# EOF

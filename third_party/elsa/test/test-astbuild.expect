@@ -1,0 +1,23 @@
+---- stdout ----
+struct Outer {
+  int x;
+  union /*anonymous compound member*/ {
+    int y;
+    int z;
+  };
+};
+
+int main(void)
+{
+  int x = 3;
+  x = 4;
+  x = 5, x = 6, x = 7, x = 8;
+  x, &x;
+  int arr[3];
+  arr[1] = 6;
+  return (struct S){ 3, 4 };
+}
+
+---- stderr ----
+---- exit status ----
+Exit 0

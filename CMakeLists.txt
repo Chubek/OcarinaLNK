@@ -38,8 +38,19 @@ file(GLOB OLNK_CORE_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/olnk/*.cpp"
 )
 
-add_library(olnk_core STATIC ${OLNK_CORE_SOURCES})
-target_include_directories(olnk_core
+add_library(olnk_core_static STATIC ${OLNK_CORE_SOURCES})
+add_library(olnk_core_shared SHARED ${OLNK_CORE_SOURCES})
+set_target_properties(olnk_core_static PROPERTIES OUTPUT_NAME olnk)
+set_target_properties(olnk_core_shared PROPERTIES OUTPUT_NAME olnk)
+
+target_include_directories(olnk_core_static
+  PUBLIC
+    "${CMAKE_SOURCE_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/third_party/Klyspec"
+    "${CMAKE_SOURCE_DIR}/third_party/sol2/include"
+    "${CMAKE_SOURCE_DIR}/third_party/lua"
+)
+target_include_directories(olnk_core_shared
   PUBLIC
     "${CMAKE_SOURCE_DIR}/include"
     "${CMAKE_SOURCE_DIR}/third_party/Klyspec"
@@ -52,14 +63,17 @@ file(GLOB OLNK_LUA_SOURCES CONFIGURE_DEPENDS
 )
 list(FILTER OLNK_LUA_SOURCES EXCLUDE REGEX ".*/lua\\.c$")
 list(FILTER OLNK_LUA_SOURCES EXCLUDE REGEX ".*/luac\\.c$")
-target_sources(olnk_core PRIVATE ${OLNK_LUA_SOURCES})
+list(FILTER OLNK_LUA_SOURCES EXCLUDE REGEX ".*/onelua\\.c$")
+target_sources(olnk_core_static PRIVATE ${OLNK_LUA_SOURCES})
+target_sources(olnk_core_shared PRIVATE ${OLNK_LUA_SOURCES})
 
 if(UNIX AND NOT APPLE)
-  target_link_libraries(olnk_core PRIVATE dl)
+  target_link_libraries(olnk_core_static PRIVATE dl)
+  target_link_libraries(olnk_core_shared PRIVATE dl)
 endif()
 
 add_executable(olnk "${CMAKE_SOURCE_DIR}/src/main.cpp")
-target_link_libraries(olnk PRIVATE olnk_core)
+target_link_libraries(olnk PRIVATE olnk_core_static)
 
 # Plugin modules
 set(OLNK_PLUGIN_SOURCES
@@ -125,6 +139,12 @@ endif()
 # Install executable
 install(TARGETS olnk
   RUNTIME DESTINATION "${OLNK_INSTALL_BINDIR}"
+)
+
+# Install core libraries
+install(TARGETS olnk_core_static olnk_core_shared
+  ARCHIVE DESTINATION "${OLNK_INSTALL_LIBDIR}"
+  LIBRARY DESTINATION "${OLNK_INSTALL_LIBDIR}"
 )
 
 if(OLNK_INSTALL_EXAMPLES)

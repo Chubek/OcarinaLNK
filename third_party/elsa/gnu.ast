@@ -1,0 +1,464 @@
+// gnu.ast            see license.txt for copyright and terms of use
+// extension to cc.ast to support GNU language extensions
+
+// sm: this contains both the representation language and the
+// annotations used by the type checker, unlike the cc.ast
+// vs. cc-tcheck.ast split, since there seemed little profit in that
+// split for this file
+
+verbatim {
+  #define GNU_EXTENSION         // this extension module is active
+
+  #include <limits.h>           // INT_MIN
+
+  // Return true if 'astName', a name stored in an AST node, is equal to
+  // the GNU attribute name 'attrName'.  The former might be (often is)
+  // surrounded by double underscores, while the latter is the simple
+  // name without underscores.
+  //
+  // This is equivalent to:
+  //
+  //   streq(astName, attrName) ||
+  //   streq(astName, stringbc("__" << attrName << "__"))
+  //
+  // but a bit more efficient and, more importantly, makes the process
+  // of recognizing such names consistent.
+  //
+  bool streq_GAN(StringRef astName, char const *attrName);
+}
+
+
+// additional contexts in the GNU extensions
+enum DeclaratorContext {
+                          // inside ASTTypeId
+  DC_TS_TYPEOF_TYPE,      //   TS_typeof_type::atype
+  DC_E_COMPOUNDLIT,       //   E_compoundLit::stype
+  DC_E_ALIGNOFTYPE,       //   E_alignofType::atype
+  DC_E_BUILTIN_VA_ARG,    //   E___builtin_va_arg::atype
+}
+
+
+// The AST extensions in this file are organized in parallel with the
+// syntactic extensions in gnu.gr.
+
+
+// ----------- gcc statement expression -----------
+class Expression {
+  // statement-expression
+  // http://gcc.gnu.org/onlinedocs/gcc-3.1/gcc/Statement-Exprs.html
+  -> E_statement(S_compound s) {
+       // sort of like E_compoundLit::tcheckedType, this ensures we
+       // only tcheck this once even though it might appear in
+       // ambiguous contexts
+       public bool tchecked = false;
+     }
+}
+
+
+// ----------- gcc compound literals -----------
+class Expression {
+  // http://gcc.gnu.org/onlinedocs/gcc-3.1/gcc/Compound-Literals.html
+  // and C99 6.5.2.5
+  -> E_compoundLit(ASTTypeId stype, IN_compound init) {
+       // help for dealing with expressions being tchecked more than once
+       public bool tcheckedType = false;
+
+       // Semantic initializer describing the new object.
+       public SemanticInitializer *m_semanticInit = NULL;
+     }
+}
+
+
+// ----------- gcc misc -----------
+enum StatementContext {
+  SC_STMT_EXPR,
+  SC_RANGE_CASE,
+};
+
+
+class Statement {
+  // nested function definition
+  -> S_function(Function f);
+
+  // case ranges
+  -> S_rangeCase(Expression exprLo, Expression exprHi, Statement s) {
+       public int labelValLo = 0;
+       public int labelValHi = 0;
+  }
+}
+
+class Expression {
+  // miscellanous builtins that for whatever reason find themselves
+  // as AST nodes instead of ordinary function calls (...)
+  // http://gcc.gnu.org/onlinedocs/gcc-3.1/gcc/Other-Builtins.html
+  -> E___builtin_constant_p(SourceLoc loc, Expression expr);
+
+  // varargs; dsw: I think that we should make all of these their own
+  // AST node, I just don't want to deal with the parsing ambiguity
+  // with E_funCall right now
+//   -> E___builtin_va_start(SourceLoc loc, Expression expr, Expression expr2);
+//   -> E___builtin_va_copy(SourceLoc loc, Expression expr, Expression expr2);
+  -> E___builtin_va_arg(SourceLoc loc, Expression expr, ASTTypeId atype);
+//   -> E___builtin_va_end(SourceLoc loc, Expression expr);
+
+  // alignment inquiry
+  // http://gcc.gnu.org/onlinedocs/gcc-3.1/gcc/Alignment.html
+  -> E_alignofType(ASTTypeId atype) {
+       public virtual CValue extConstEval(ConstEval &env) const override;
+       public int alignment = 0; // set by tcheck
+     }
+
+  -> E_alignofExpr(Expression expr) {
+       public virtual CValue extConstEval(ConstEval &env) const override;
+       public int alignment = 0;
+     }
+
+  // conditional with no middle operand
+  // http://gcc.gnu.org/onlinedocs/gcc-3.1/gcc/Conditionals.html
+  -> E_gnuCond(Expression cond, Expression el) {
+       public virtual CValue extConstEval(ConstEval &env) const override;
+       public virtual bool extHasUnparenthesizedGT() override;
+     }
+}
+
+
+// ----------- gcc dangling labels -----------
+// (no AST extensions required)
+
+
+// ----------- gcc typeof -----------
+// types denoted with 'typeof' keyword
+new class ASTTypeof {
+  // same as we do for statements
+  public ASTTypeof *ambiguity = NULL;
+  public void addAmbiguity(ASTTypeof *alternative);
+  custom traverse { if (ambiguity) ambiguity->traverse(vis); }
+
+  // print ambiguities
+  public void printAmbiguities(ostream &os, int indent) const;
+  custom preemptDebugPrint {
+    if (ambiguity) {
+      printAmbiguities(os, indent);
+      return;     // skip the normal, unambiguous-node print code
+    }
+  }
+
+  // yield the ASTTypeof selected by ambiguity resolution; the
+  // type is in its 'type' member
+  public ASTTypeof *tcheck(Env &env, DeclFlags dflags);
+  public void mid_tcheck(Env &env, DeclFlags &dflags);
+  pure_virtual Type *itcheck(Env &env, DeclFlags dflags);
+
+  // dsw: I had to move this here to deal with the mid_tcheck design
+  // pattern that is used to resolve ambiguities.
+  public Type *type = NULL;
+
+  // dsw: I'm assuming that ASTTypeof should terminate the top of the
+  // Expression tree, but I don't feel absolutely sure about it.
+  -> TS_typeof_expr(FullExpression expr);
+
+  -> TS_typeof_type(ASTTypeId atype);
+}
+
+
+class TypeSpecifier {
+  // 'typeof' behaves as a type specifier.
+  -> TS_typeof(ASTTypeof atype);
+}
+
+
+// ----------- gcc C++ min and max operators -----------
+// (2005-04-07: there used to be a special E_gnuMinMax, but because
+// those operators are overloadable, they become intertwined with much
+// more of the tchecker structure, and therefore I folded them into
+// BinaryOp)
+
+
+// ----------- gcc asm -----------
+// https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
+class AsmDefinition {
+  -> AD_gnu(
+       // This is to hold the optional 'volatile' qualifier.  I think a
+       // type-safe enum bit set is preferable to 'bool' even if only
+       // one bit can be set.
+       CVFlags cv,
+
+       // Assembly template string.  This can have %-prefixed
+       // placeholders where the operands are inserted (see GCC
+       // manual for details).
+       E_stringLit text,
+
+       // Possibly empty list of expressions whose value is updated by
+       // the assembly code, along with constraints on where the
+       // compiler can allocate them.  The list might be empty, but the
+       // pointer to the list is never NULL.
+       ASTList<GNUAsmOperand> outputOperands,
+
+       // Possibly empty list of expressions that are read by the
+       // assembly code.
+       ASTList<GNUAsmOperand> inputOperands,
+
+       // List of strings that identify hardware resources such as
+       // registers and flags that are written by the assembly code.
+       ASTList<E_stringLit> clobbers);
+
+  // TODO: Add support for 'GotoLabels'.  Currently, I don't even have
+  // grammar support, so AST support is pointless.
+}
+
+
+// An element of the input or output operand list.
+class GNUAsmOperand(
+  // Optional identifier that can be used in the template string to
+  // refer to this operand (like "%[result]") instead of a numeric
+  // positional references (like "%2").
+  StringRef /*nullable*/ asmSymbolicName,
+
+  // String listing allocation constraints for the operand, such as
+  // whether it can be in a register or in memory or both.
+  E_stringLit constraint,
+
+  // For an output operand, this is an lvalue expression to update.  For
+  // an input operand, it is an expression giving the value.  In each
+  // case, the compiler is expected to know how to refer to the location
+  // that contains the value from within assembly code, and that is what
+  // is substituted for the placeholder.  There are no implicit
+  // conversions performed on the value.
+  Expression expr)
+{
+  public void tcheck(Env &env, bool isInputOperand);
+  public void print(PrintEnv &env) const;
+}
+
+
+// ----------- gcc asm labels -----------
+// (no AST extension b/c extra info dropped on floor)
+
+
+// ----------- C99 restrict keyword -----------
+// (no AST extensions required b/c cc-flags.h already has *_RESTRICT)
+
+
+// ----------- C99 qualifiers in array brackets -----------
+// (no AST extension b/c extra info dropped on floor)
+
+
+// ------------ gcc computed goto ----------
+class Expression {
+  // address of a label, e.g., "&&labelName"
+  -> E_addrOfLabel(StringRef labelName);
+}
+
+class Statement {
+  // goto a label whose address has been taken
+  -> S_computedGoto(Expression target);
+}
+
+
+// ----------- gcc/C99 complex/imaginary ----------
+class Expression {
+  -> E_fieldAcc {
+       // tcheck a __real__ or __imag__
+       public Type *itcheck_complex_selector(Env &env, LookupFlags flags,
+                                             LookupSet &candidates);
+     }
+
+  -> E_binary {
+       // tcheck arith involving complex or imaginary types
+       public Type *itcheck_complex_arith(Env &env);
+     }
+}
+
+
+// ----------------------- gcc __attribute__ ---------------------------
+// A sequence of __attribute__((...)) specifiers.
+class AttributeSpecifierList(
+  AttributeSpecifier spec,
+  AttributeSpecifierList /*nullable*/ next
+) {
+  public void print(PrintEnv &env) const;
+
+  // Data passed into and out of 'tcheck', following a pattern similar
+  // to what is done for Declarator.
+  public class Tcheck {
+  public:      // data
+    // The type of the entity with which the attributes are associated.
+    // The tcheck process may change it, for example to apply a "mode"
+    // attribute.
+    //
+    // This might be a reference to a NULL pointer, meaning the entity
+    // to which the attribute was applied does not have a type (e.g.,
+    // it is a label).
+    //
+    Type * /*nullable*/ &m_type;
+
+    // If not NULL after tcheck, the attributes included an "alias"
+    // and this is the Variable the alias referred to.
+    Variable *m_gnuAliasTarget;
+
+  public:      // methods
+    explicit Tcheck(Type *&type)
+      : m_type(type),
+        m_gnuAliasTarget(NULL)
+    {}
+  };
+
+  // Check the attributes and update 'tc'.
+  public void tcheck(Env &env, Tcheck &tc);
+}
+
+
+// A single __attribute__((...)) specifier; there may be many individual
+// attributes inside the parens.
+class AttributeSpecifier(
+  Attribute attr,
+  AttributeSpecifier /*nullable*/ next
+) {
+  public void print(PrintEnv &env) const;
+}
+
+
+// One attribute, somewhere inside __attribute((...)); syntactically,
+// attributes are separated by commas in the parens.
+class Attribute(SourceLoc loc) {
+  pure_virtual void print(PrintEnv &env) const;
+
+  // e.g., __attribute__(( ))
+  //                      ^
+  // I decided to keep these even though the GNU documentation states
+  // that they are always ignored, because it would be a bit awkward
+  // to drop them in the parser, and they shouldn't occur frequently
+  // anyway.
+  -> AT_empty();
+
+  // e.g., __attribute__((packed))
+  //                      ^^^^^^
+  // Note that even C++ keywords will just get stored as StringRefs.
+  -> AT_word(StringRef w);
+
+  // e.g., __attribute__((format(printf, 1, 2)))
+  //                      ^^^^^^^^^^^^^^^^^^^^
+  // the 'args' can be empty (NULL) to indicate an empty list (which
+  // is still different from AT_word)
+  -> AT_func(StringRef f, FakeList<ArgExpression> *args);
+}
+
+
+class TypeSpecifier {
+  // Nullable list of attribute specifiers.
+  public AttributeSpecifierList *m_attrSpecList = NULL;
+
+  // We have a second list of attributes that can appear in
+  // TS_elaborated, TS_classSpec, and TS_enumSpec between the ClassKey
+  // or "enum" and the type name.  Whereas the attributes in
+  // 'm_attrSpecList' are associated with the entire declaration this
+  // type specifier appears in, these are associated just with the type.
+  //
+  // Examples (see test/pprint/gnu-attr-after-enum.c):
+  //
+  //   // Uses 'm_attrSpecList'.  'e1' and 'e2' are deprecated, but 'E'
+  //   // itself is not.  A warning is issued only when 'e1' or 'e2' is
+  //   // later used, but not when 'E' is used.
+  //   __attribute__((deprecated)) enum E {} e1, e2;
+  //
+  //   // Uses 'm_elaboratedAttrSpecList'.  'E' itself is deprecated,
+  //   // so we get warnings for 'e1' and 'e2' immediately, plus for any
+  //   // subsequent use of 'E'.
+  //   enum __attribute__((deprecated)) E {} e1, e2;
+  //
+  // I'm not entirely satisfied with having two lists like this, but
+  // we'll see how it works out.
+  //
+  public AttributeSpecifierList *m_elaboratedAttrSpecList = NULL;
+
+  custom debugPrint {
+    PRINT_SUBTREE(m_attrSpecList);
+    PRINT_SUBTREE(m_elaboratedAttrSpecList);
+  }
+
+  // Prepend 'list' to 'm_attrSpecList'.
+  public void prependASL(AttributeSpecifierList *list);
+
+  // Append 'list' to 'm_attrSpecList'.
+  public void appendASL(AttributeSpecifierList * /*nullable*/ list);
+
+  // Prepend 'list' to 'm_elaboratedAttrSpecList'.
+  public void prependElaboratedASL(AttributeSpecifierList *list);
+
+  // Arrange to print the attributes.
+  public void ext_preprint_gnu(PrintEnv &env) const;
+  custom ext_preprint { ext_preprint_gnu(env); }
+  public void ext_printAfterClassKey_gnu(PrintEnv &env) const;
+  custom ext_printAfterClassKey { ext_printAfterClassKey_gnu(env); }
+
+  // And also tcheck them.
+  public void ext_tcheck_attrSpecList(Env &env, Tcheck &tc,
+                                      Type *& /*INOUT*/ ret);
+  custom ext_tcheck { ext_tcheck_attrSpecList(env, tc, ret); }
+}
+
+
+// Like for TypeSpecifier, augment declarators with an optional list of
+// attributes.
+class IDeclarator {
+  // Nullable list of attribute specifiers.
+  public AttributeSpecifierList *m_attrSpecList = NULL;
+  custom debugPrint {
+    PRINT_SUBTREE(m_attrSpecList);
+  }
+
+  // Prepend 'list' to 'm_attrSpecList'.
+  public void prependASL(AttributeSpecifierList *list);
+
+  // Append 'list' to 'm_attrSpecList'.
+  public void appendASL(AttributeSpecifierList * /*nullable*/ list);
+
+  // Arrange to print the attributes.
+  public void ext_print_attrSpecList(PrintEnv &env) const;
+  custom ext_print { ext_print_attrSpecList(env); }
+
+  // And also tcheck them.
+  public void ext_tcheck_attrSpecList(Env &env, Declarator::Tcheck &tc);
+  custom ext_tcheck { ext_tcheck_attrSpecList(env, tc); }
+}
+
+
+// Hook into top-level declarator printing to assist with printing
+// attributes associated with IDeclarators.
+class Declarator {
+  public void ext_pre_print_gnu(PrintEnv &env) const;
+  custom ext_pre_print { ext_pre_print_gnu(env); }
+
+  public void ext_post_print_gnu(PrintEnv &env) const;
+  custom ext_post_print { ext_post_print_gnu(env); }
+}
+
+
+class Statement {
+  // Type-check GNU statement extensions.
+  public void ext_tcheck_gnu(Env &env);
+  custom ext_tcheck { ext_tcheck_gnu(env); }
+
+  // Labels can have attributes.
+  -> S_label {
+       // Nullable list of attribute specifiers.
+       public AttributeSpecifierList *m_attrSpecList = NULL;
+       custom debugPrint {
+         PRINT_SUBTREE(m_attrSpecList);
+       }
+
+       // Append 'list' to 'm_attrSpecList'.
+       public void appendASL(AttributeSpecifierList *list);
+
+       // Type-check attributes.
+       public void tcheckLabelAttributes(Env &env);
+
+       // Print the attributes.
+       public void ext_print_gnu(PrintEnv &env,
+                                 StatementContext context) const;
+       custom ext_print { ext_print_gnu(env, context); }
+     }
+}
+
+
+// EOF

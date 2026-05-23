@@ -120,9 +120,23 @@
 
 #else				/* }{ */
 
+/* Fallback: prefer mkstemp on Unix-like targets even without LUA_USE_POSIX. */
+#if defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#define LUA_TMPNAMBUFSIZE	32
+#if !defined(LUA_TMPNAMTEMPLATE)
+#define LUA_TMPNAMTEMPLATE	"/tmp/lua_XXXXXX"
+#endif
+#define lua_tmpnam(b,e) { \
+        strcpy(b, LUA_TMPNAMTEMPLATE); \
+        e = mkstemp(b); \
+        if (e != -1) close(e); \
+        e = (e == -1); }
+#else
 /* ISO C definitions */
 #define LUA_TMPNAMBUFSIZE	L_tmpnam
 #define lua_tmpnam(b,e)		{ e = (tmpnam(b) == NULL); }
+#endif
 
 #endif				/* } */
 
@@ -429,4 +443,3 @@ LUAMOD_API int luaopen_os (lua_State *L) {
   luaL_newlib(L, syslib);
   return 1;
 }
-
